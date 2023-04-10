@@ -70,6 +70,7 @@ tcpServer.on("connection",socket=>{
 		}
 
 		if(command==="action shutdown-server"){
+			if(!client.deviceName.toLowerCase().startsWith("lff-")) return;
 			console.log(`${client.deviceName} shutdown the Server...`);
 			for(const client of clients){
 				client.socket.write(`action log-msg\nutf-8\n${client.deviceName} shutdown the Server...`);
@@ -79,9 +80,10 @@ tcpServer.on("connection",socket=>{
 				if(error) console.log("Server cant stop Error:",error);
 				else console.log("Server has shutting down!");
 			});
+			process.exit(0);
 		}
 	});
-	socket.on("end",()=>{
+	socket.on("close",()=>{
 		if(client.deviceName){
 			console.log(`${client.deviceName} has disconnected!`);
 		}
@@ -91,5 +93,6 @@ tcpServer.on("connection",socket=>{
 tcpServer.on("listening",()=>console.log("Server is running on Port "+port));
 tcpServer.listen(port);
 tcpServer.on("close",()=>{
-	tcpServer.listen(port);
+	console.log("Server Closed!");
+	setTimeout(()=>tcpServer.listen(port),1e3);
 });

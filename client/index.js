@@ -5,6 +5,19 @@ const host=process.env.host||"127.0.0.1";
 const port=process.env.port||8734;
 const deviceName=process.env.deviceName||os.hostname()||"no name";
 
+function connect(){
+	try{
+		socket.connect(port,host);
+	}catch(e){
+		console.log(e.code);
+		if(e.code==="ECONNREFUSED"){
+			console.log("Connection refused! retry in 5s");
+			setTimeout(connect,5e3);
+		}
+		else throw e;
+	}
+}
+
 const socket=new net.Socket();
 
 socket.on("connect",()=>{
@@ -19,10 +32,14 @@ socket.on("data",data=>{
 	}
 });
 socket.on("close",isError=>{
-	if(isError) console.log("Disconnect by error");
+	if(isError) console.log("Connection error!                     ");
 	process.stdout.write("Disconnected! Reconnect to Server ...\r");
-	setTimeout(()=>socket.connect(port,host),1e3);
-})
+	setTimeout(connect,1e3);
+});
+socket.on("error",error=>{
+	if(error.code==="ECONNREFUSED"){}
+	else throw error;
+});
 process.stdin.on("data",buffer=>{
 	const command=(buffer
 		.toString("utf-8")
@@ -48,4 +65,4 @@ process.stdin.on("data",buffer=>{
 });
 
 process.stdout.write("Connecting to Server ...\r");
-socket.connect(port,host);
+connect();
