@@ -36,11 +36,13 @@ function updateConnectedClientsCount(){
 	process.title=`${connectedClients.length} clients connected`;
 }
 
-const tcpServer=net.createServer(socket=>{
+const tcpServer=new net.Server();
+tcpServer.on("connection",socket=>{
 	const id=Date.now();
 	const client=addClient({
 		id,
 		socket,
+		uptime: Date.now(),
 	});
 
 	socket.on("data",data=>{
@@ -66,13 +68,28 @@ const tcpServer=net.createServer(socket=>{
 		){
 			console.log(`${client.deviceName} try to change his deviceName`);
 		}
+
+		if(command==="action shutdown-server"){
+			console.log(`${client.deviceName} shutdown the Server...`);
+			for(const client of clients){
+				client.socket.write(`action log-msg\nutf-8\n${client.deviceName} shutdown the Server...`);
+				client.socket.end();
+			}
+			tcpServer.close(error=>{
+				if(error) console.log("Server cant stop Error:",error);
+				else console.log("Server has shutting down!");
+			});
+		}
 	});
 	socket.on("end",()=>{
 		if(client.deviceName){
 			console.log(`${client.deviceName} has disconnected!`);
 		}
 		removeClient({id});
-	})
+	});
 });
-
-tcpServer.listen(port,()=>console.log("Server is running on Port "+port));
+tcpServer.on("listening",()=>console.log("Server is running on Port "+port));
+tcpServer.listen(port);
+tcpServer.on("close",()=>{
+	tcpServer.listen(port);
+});
