@@ -1,0 +1,13 @@
+{
+  "name": "online-devices",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server/index.js",
+  "scripts": {
+    "server": "cd server; node index.js; cd ..",
+    "client": "cd client; node index.js; cd .."
+  },
+  "keywords": ["net","tpc","server","client","online-devices"],
+  "author": "LFF5644",
+  "license": "ISC"
+}
