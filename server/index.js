@@ -15,58 +15,85 @@ function updateClient(client){
 		...item,
 		...client,
 	});
-	updateConnectedClientsCount();
+	sendUpdateClients("update",clientId);
 }
 function addClient(client){
+	if(!client.id) throw new Error("addClient: client.id is undefined");
 	client={
 		...clientTemplate,
 		...client,
 	};
 	clients.push(client);
-	updateConnectedClientsCount();
+	sendUpdateClients("add",client.id);
 	return client;
 }
 function removeClient(client){
 	const clientId=client.id;
 	clients=clients.filter(item=>item.id!==clientId);
-	updateConnectedClientsCount();
+	sendUpdateClients("remove",clientId);
 }
-function updateConnectedClientsCount(){
-	const connectedClients=clients.filter(item=>item.deviceName);
-	process.title=`${connectedClients.length} clients connected`;
+function sendUpdateClients(type,id){
+	if(
+		type==="add"||
+		type==="update"
+	){
+		const client=clients.find(item=>item.id===id);
+		const hexArrayClient=[
+			Buffer.from(String(client.id),"utf-8").toString("hex"),
+			Buffer.from(String(client.deviceName),"utf-8").toString("hex"),
+			Buffer.from(String(client.uptime),"utf-8").toString("hex"),
+		].join(",");
+		for(const client of clients){
+			if(!client.deviceName) continue;
+			client.socket.write("action updateClientItem\nhex-array\n"+type+"\n"+hexArrayClient);
+		}
+	}
+	else if(type==="remove"){
+		for(const client of clients){
+			if(!client.deviceName) continue;
+			client.socket.write("action updateClientItem\nraw\n"+type+"\n"+id);
+		}
+	}
+	else{
+		throw new Error("type is not allowed!");
+	}
 }
 
 const tcpServer=new net.Server();
 tcpServer.on("connection",socket=>{
-	const id=Date.now();
+	const id=String(Date.now());
 	const client=addClient({
 		id,
 		socket,
-		uptime: Date.now(),
+		uptime: String(Date.now()),
 	});
 
 	socket.on("data",data=>{
 		const command=data.toString("utf-8");
-		if(
-			!client.deviceName&&
-			!command.startsWith("set deviceName\n")
-		){
-			socket.end();
-		}
-		else if(
-			!client.deviceName&&
-			command.startsWith("set deviceName\n")
-		){
-			const deviceName=Buffer.from(command.split("\n")[2],command.split("\n")[1]).toString("utf-8");
-			console.log(`${deviceName} has connected from ${socket.localAddress}`);
-			client.deviceName=deviceName;
-			updateClient({id,deviceName});
-		}
-		else if(
-			client.deviceName&&
-			command.startsWith("set deviceName\n")
-		){
-			console.log(`${client.deviceName} try to change his deviceName`);
+		hasDeviceName:{
+			if(
+				!client.deviceName&&
+				!command.startsWith("set deviceName\n")
+			){
+				socket.end();
+				return;
+			}
+			else if(
+				!client.deviceName&&
+				command.startsWith("set deviceName\n")
+			){
+				const deviceName=Buffer.from(command.split("\n")[2],command.split("\n")[1]).toString("utf-8");
+				console.log(`${deviceName} has connected from ${socket.localAddress}`);
+				client.deviceName=deviceName;
+				updateClient({id,deviceName});
+				socket.write("action connection-active");
+			}
+			else if(
+				client.deviceName&&
+				command.startsWith("set deviceName\n")
+			){
+				console.log(`${client.deviceName} try to change his deviceName`);
+			}
 		}
 
 		if(command==="action shutdown-server"){
@@ -81,6 +108,21 @@ tcpServer.on("connection",socket=>{
 				else console.log("Server has shutting down!");
 			});
 			process.exit(0);
+		}
+		else if(command==="get clients"){
+			console.log(`send clients to ${client.deviceName}`);
+			const connectedDevices=(clients
+				.filter(item=>item.deviceName)
+				.map(item=>(
+					[
+						Buffer.from(String(item.id),"utf-8").toString("hex"),
+						Buffer.from(String(item.deviceName),"utf-8").toString("hex"),
+						Buffer.from(String(item.uptime),"utf-8").toString("hex"),
+					].join(",")
+				))
+				.join(";")
+			);
+			socket.write("set clients\nhex-array\n"+connectedDevices);
 		}
 	});
 	socket.on("close",()=>{
