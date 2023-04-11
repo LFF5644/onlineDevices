@@ -1,6 +1,6 @@
+#!/usr/bin/env node
 const net=require("net");
 const os=require("os");
-const { uptime } = require("process");
 
 const host=process.env.host||"127.0.0.1";
 const port=process.env.port||8734;
@@ -35,16 +35,7 @@ function removeClient(client){
 	const clientId=client.id;
 	clients=clients.filter(item=>item.id!==clientId);
 }
-
-const socket=new net.Socket();
-
-socket.on("connect",()=>{
-	console.log(`Connected! Host ${host} with Port ${port}`);
-	socket.write(`set deviceName\nhex\n${Buffer.from(deviceName,"utf-8").toString("hex")}`);
-});
-socket.on("data",data=>{
-	const command=data.toString("utf-8");
-	
+function onServerCommand(command){
 	console.log(`cmd: ${JSON.stringify(command)}`);
 
 	if(command.startsWith("action log-msg\n")){
@@ -78,7 +69,7 @@ socket.on("data",data=>{
 		}
 	}
 	else if(command==="action connection-active"){
-		socket.write("get clients");
+		send("get clients");
 	}
 	else if(command.startsWith("action updateClientItem\n")){
 		const [_cmd,codec,action,data]=command.split("\n");
@@ -105,6 +96,32 @@ socket.on("data",data=>{
 	}
 	else{
 		console.log(`command ${JSON.stringify(command)} not found`);
+	}
+}
+function send(msg){return new Promise((resolve,reject)=>{
+	socket.write(msg+"$END$",error=>{
+		if(error){
+			reject(error);
+			return;
+		}
+		resolve();
+	});
+})}
+
+const socket=new net.Socket();
+
+socket.on("connect",()=>{
+	console.log(`Connected! Host ${host} with Port ${port}`);
+	send(`set deviceName\nhex\n${Buffer.from(deviceName,"utf-8").toString("hex")}`);
+});
+socket.on("data",data=>{
+	let commands=(data
+		.toString("utf-8")
+		.split("$END$")
+		.filter(item=>item)
+	);
+	for(const command of commands){
+		onServerCommand(command);
 	}
 });
 socket.on("close",isError=>{
@@ -134,7 +151,7 @@ process.stdin.on("data",buffer=>{
 
 	if(command==="shutdown"){
 		console.log("Shutdown Server...");
-		socket.write("action shutdown-server");
+		send("action shutdown-server");
 	}
 	else if(command==="disconnect"){
 		socket.end();
