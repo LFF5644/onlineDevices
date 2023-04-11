@@ -29,15 +29,15 @@ function addClient(client){
 		...client,
 	};
 	clients.push(client);
+	console.log(`${clients.length} clients connected`);
 	return client;
 }
 function removeClient(client){
 	const clientId=client.id;
 	clients=clients.filter(item=>item.id!==clientId);
+	console.log(`${clients.length} clients connected`);
 }
 function onServerCommand(command){
-	console.log(`cmd: ${JSON.stringify(command)}`);
-
 	if(command.startsWith("action log-msg\n")){
 		console.log("SERVER-LOG: "+Buffer.from(command.split("\n")[2],command.split("\n")[1]).toString("utf-8"));
 	}
@@ -62,10 +62,9 @@ function onServerCommand(command){
 					uptime: item[2],
 				}))
 			);
-			console.log(`set clients; length: ${clients.length}, deviceNames: ${clients.map(item=>'"'+item.deviceName+'"').join(" ")}`);
 		}
 		else{
-			console.log(`codec ${codec} not found!`);
+			throw new Error(`codec ${codec} not found!`);
 		}
 	}
 	else if(command==="action connection-active"){

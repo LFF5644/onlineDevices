@@ -66,7 +66,6 @@ function send(socket,msg){return new Promise((resolve,reject)=>{
 			reject(error);
 			return;
 		}
-		console.log("send: "+msg)
 		resolve();
 	});
 })}
@@ -76,7 +75,6 @@ function getClient(id){
 function onClientCommand(id,command){
 	let client=getClient(id);
 	const socket=client.socket;
-	console.log(`${client.deviceName}: ${JSON.stringify(command)}`);
 	hasDeviceName:{
 		if(
 			!client.deviceName&&
@@ -117,7 +115,6 @@ function onClientCommand(id,command){
 		process.exit(0);
 	}
 	else if(command==="get clients"){
-		console.log(`send clients to ${client.deviceName}`);
 		const connectedDevices=(clients
 			.filter(item=>item.deviceName)
 			.map(item=>(
